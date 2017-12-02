@@ -11,6 +11,13 @@ from keras.backend import sum, abs, sqrt, mean
 import os
 from keras import optimizers
 import numpy as np
+import sys
+import argparse
+
+parse=argparse.ArgumentParser()
+parse.add_argument('-c', '--premodel', type=str, default = None)
+parse.add_argument('-l','--lr', type=float, default = 1e-3)
+args=parse.parse_args()
 
 base_model = ResNet50(weights = 'imagenet', include_top = False, input_tensor = Input(shape=(None, None, config.nr_channel)))
 
@@ -46,7 +53,7 @@ logname = os.path.join(os.path.split(curdir)[0], 'logs')
 newlogdir = os.path.join(logname, curname)
 if os.path.exists(newlogdir) is False:
     os.mkdir(newlogdir)
-    os.mkdir(os.path.join(newlogdir, 'models-id'))
+    os.mkdir(os.path.join(newlogdir, 'models'))
     os.system('ln -s '+newlogdir+' ./logs')
 
 def mae(segmap, pred_segmap):
@@ -69,11 +76,18 @@ def pred_num(segmap, pred_segmap):
     pred_num = sum(pred_segmap) / 20
     return pred_num
 
+if args.premodel:
+    model.load_weights(args.premodel)
 #train
-adam = optimizers.Adam(lr = 0.01)
+adam = optimizers.Adam(lr = args.lr)
 model.compile(optimizer = adam, loss='mean_squared_error', metrics=[true_num, pred_num, mae, mse])
 
-checkpoint = ModelCheckpoint('./logs/models-id/weights_{epoch:02d}.hdf5', verbose=1, save_best_only=False, mode='auto', period = 1)
+# serialize model to JSON
+model_json = model.to_json()
+with open("./logs/model.json", "w") as json_file:
+    json_file.write(model_json)
+          
+checkpoint = ModelCheckpoint('./logs/models/weights_{epoch:02d}.hdf5', verbose=1, save_best_only=False, save_weights_only=True, mode='auto', period = 1)
 
 data_generator = get('train')
 model.fit_generator(data_generator, steps_per_epoch = config.per_epoch, epochs=config.nr_epoch, callbacks=[checkpoint])
