@@ -1,0 +1,71 @@
+#!/usr/bin/env mdl
+
+import cv2
+import pickle
+import nori2 as nori
+import numpy as np
+import multiprocessing
+from io import BytesIO
+
+from scipy.spatial import distance
+from scipy.ndimage import gaussian_filter
+
+from meghair.utils import imgproc
+from neupeak.utils import brainpp
+from tqdm import tqdm
+from IPython import embed
+
+
+def process(data):
+    img, d = data
+    shape, pos = img.shape, d['pos']
+    h, w = shape[:2]
+    mat = np.zeros(shape[:2])
+    D = distance.cdist(pos, pos)
+    D.sort()
+    for i in range(len(pos)):
+        m = np.zeros(shape[:2])
+        x, y = int(pos[i][0]), int(pos[i][1])
+        if y < h and x < w:
+            m[y, x] = 20
+            sigma = D[i, :10].mean()
+            mat += gaussian_filter(m, 0.3 * sigma)
+    return mat, img, d
+
+
+def main():
+    data = pickle.load(open(
+        '/unsullied/sharefs/_research_video/VideoData/datasets/Public/Counting/ShanghaiTech_Crowd_Counting_Dataset/ShanghaiTech_Crowd.pkl', 'rb'))
+    brainpp.ensure_sharedfs_write_permission(
+        '/unsullied/sharefs/_research_video/VideoData/datasets/Public/')
+    nr = nori.open(
+        '/unsullied/sharefs/_research_video/VideoData/datasets/Public/Counting/ShanghaiTech_Crowd_Counting_Dataset/ShanghaiTech_Crowd.nori', 'r')
+    nr_mat = nori.open(
+        '/unsullied/sharefs/_research_video/VideoData/datasets/Public/Counting/ShanghaiTech_Crowd_Counting_Dataset/ShanghaiTech_Crowd-mat.nori', 'w')
+
+    def data_iter():
+        for d in data:
+            img = imgproc.imdecode(nr.get(d['nori_id']))
+            yield (img, d)
+
+    pool = multiprocessing.Pool(40)
+    result = []
+    for m in tqdm(pool.imap(process, data_iter())):
+        mat, img, d = m
+        bio = BytesIO()
+        np.save(bio, mat)
+        nr_id = nr_mat.put(bio.getvalue())
+        d.update({'mat_nori_id': nr_id})
+        result.append(d)
+
+        if False:
+            cv2.imshow("img", img)
+            cv2.imshow("mat", mat)
+            cv2.waitKey(0)
+
+    pickle.dump(result, open(
+        '/unsullied/sharefs/_research_video/VideoData/datasets/Public/Counting/ShanghaiTech_Crowd_Counting_Dataset/ShanghaiTech_Crowd-mat.pkl', 'wb'))
+    nr.close()
+
+if __name__ == '__main__':
+    main()
