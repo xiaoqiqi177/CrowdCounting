@@ -46,7 +46,7 @@ logname = os.path.join(os.path.split(curdir)[0], 'logs')
 newlogdir = os.path.join(logname, curname)
 if os.path.exists(newlogdir) is False:
     os.mkdir(newlogdir)
-    os.mkdir(os.path.join(newlogdir, 'models-id'))
+    os.mkdir(os.path.join(newlogdir, 'models'))
     os.system('ln -s '+newlogdir+' ./logs')
 
 def mae(segmap, pred_segmap):
@@ -73,7 +73,7 @@ def pred_num(segmap, pred_segmap):
 adam = optimizers.Adam(lr = 0.01)
 model.compile(optimizer = adam, loss='mean_squared_error', metrics=[true_num, pred_num, mae, mse])
 
-checkpoint = ModelCheckpoint('./logs/models-id/weights_{epoch:02d}.hdf5', verbose=1, save_best_only=False, mode='auto', period = 1)
+checkpoint = ModelCheckpoint('./logs/models/weights_{epoch:02d}.hdf5', verbose=1, save_best_only=False, mode='auto', period = 1)
 
 data_generator = get('train')
 model.fit_generator(data_generator, steps_per_epoch = config.per_epoch, epochs=config.nr_epoch, callbacks=[checkpoint])
