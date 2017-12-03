@@ -4,7 +4,7 @@ from keras.layers import Conv2D, MaxPooling2D, Input, Activation, UpSampling2D, 
 from keras.models import Model
 from dataset import get
 from common import config
-from keras.applications.resnet50 import ResNet50
+from resnet50 import ResNet50
 from keras.callbacks import ModelCheckpoint, Callback, ReduceLROnPlateau, LearningRateScheduler, EarlyStopping, TensorBoard
 
 from keras.backend import sum, abs, sqrt, mean
@@ -13,6 +13,7 @@ from keras import optimizers
 import numpy as np
 import sys
 import argparse
+from dataset_val import get_test
 
 parse=argparse.ArgumentParser()
 parse.add_argument('-c', '--premodel', type=str, default = None)
@@ -25,7 +26,7 @@ addlayers = []
 for layer in base_model.layers:
     if 'add' in layer.name:
         addlayers.append(layer)
-inds = [15, 12, 6]
+inds = [15, 12, 6, 2]
 pyramids = [addlayers[ind].output for ind in inds]
 
 x = pyramids[0]
@@ -35,6 +36,7 @@ x = Conv2D(config.nr_heatmap_channel, (1, 1), activation='linear', padding='same
 base_output = x
 for x in pyramids[1:]:
     base_output = UpSampling2D(size = (2, 2))(base_output)
+    base_output = Conv2D(config.nr_heatmap_channel, (1, 1), activation='relu', padding='same')(base_output)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
     x = Conv2D(config.nr_heatmap_channel, (1, 1), activation='linear', padding='same')(x)
@@ -44,7 +46,7 @@ x = base_output
 x = BatchNormalization()(x)
 x = Activation('relu')(x)
 x = Conv2D(config.nr_heatmap_channel, (1, 1), activation='relu', padding='same')(x)
-pred_segmap = UpSampling2D(size = (8, 8))(x)
+pred_segmap = UpSampling2D(size = (4, 4))(x)
 model = Model(inputs=base_model.input, outputs=pred_segmap)
 
 curdir = os.path.abspath('.')
@@ -92,4 +94,7 @@ with open("./logs/model.json", "w") as json_file:
 checkpoint = ModelCheckpoint('./logs/models/weights_{epoch:02d}.hdf5', verbose=1, save_best_only=False, save_weights_only=True, mode='auto', period = 1)
 
 data_generator = get('train')
-model.fit_generator(data_generator, steps_per_epoch = config.per_epoch, epochs=config.nr_epoch, callbacks=[checkpoint])
+valid_data = get_test('test')
+
+model.fit_generator(data_generator, validation_data = valid_data, steps_per_epoch = config.per_epoch, epochs=config.nr_epoch, callbacks=[checkpoint])
+

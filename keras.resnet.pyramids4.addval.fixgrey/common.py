@@ -8,6 +8,6 @@ class Config:
     nr_heatmap_channel = 1
     input_shape = image_shape + (nr_channel, )
     segmap_shape = image_shape + (nr_heatmap_channel, )
-    nr_epoch = 100
+    nr_epoch = 1000
     per_epoch = 200
 config = Config()

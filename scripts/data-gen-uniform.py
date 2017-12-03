@@ -17,15 +17,12 @@ def process(data):
     shape, pos = img.shape, d['pos']
     h, w = shape[:2]
     mat = np.zeros(shape[:2])
-    D = distance.cdist(pos, pos)
-    D.sort()
     for i in range(len(pos)):
         m = np.zeros(shape[:2])
         x, y = int(pos[i][0]), int(pos[i][1])
         if y < h and x < w:
             m[y, x] = 20
-            sigma = D[i, :10].mean()
-            mat += gaussian_filter(m, 0.3 * sigma)
+            mat += gaussian_filter(m, 8)
     return mat, img, d
 
 
@@ -48,15 +45,14 @@ def main():
         mat_nr_data = bio.getvalue()
         d.update({'mat_nori_data': mat_nr_data})
         result.append(d)
-        import IPython
-        IPython.embed()
+
         if False:
             cv2.imshow("img", img)
             cv2.imshow("mat", mat)
             cv2.waitKey(0)
 
     pickle.dump(result, open(
-        '/unsullied/sharefs/xqq/temp/ShanghaiTech_Crowd/ShanghaiTech_Crowd-mat.pkl', 'wb'))
+        '/unsullied/sharefs/xqq/temp/ShanghaiTech_Crowd/ShanghaiTech_Crowd-mat-uniform.pkl', 'wb'))
 
 if __name__ == '__main__':
     main()
