@@ -11,6 +11,13 @@ from keras.backend import sum, abs, sqrt, mean
 import os
 from keras import optimizers
 import numpy as np
+import sys
+import argparse
+
+parse=argparse.ArgumentParser()
+parse.add_argument('-c', '--premodel', type=str, default = None)
+parse.add_argument('-l','--lr', type=float, default = 1e-3)
+args=parse.parse_args()
 
 base_model = ResNet50(weights = 'imagenet', include_top = False, input_tensor = Input(shape=(None, None, config.nr_channel)))
 
@@ -24,13 +31,13 @@ pyramids = [addlayers[ind].output for ind in inds]
 x = pyramids[0]
 x = BatchNormalization()(x)
 x = Activation('relu')(x)
-x = Conv2D(config.nr_heatmap_channel, (1, 1), activation='relu', padding='same')(x)
+x = Conv2D(config.nr_heatmap_channel, (1, 1), activation='linear', padding='same')(x)
 base_output = x
 for x in pyramids[1:]:
     base_output = UpSampling2D(size = (2, 2))(base_output)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
-    x = Conv2D(config.nr_heatmap_channel, (1, 1), activation='relu', padding='same')(x)
+    x = Conv2D(config.nr_heatmap_channel, (1, 1), activation='linear', padding='same')(x)
     base_output = Add()([base_output, x])
 
 x = base_output
@@ -50,30 +57,39 @@ if os.path.exists(newlogdir) is False:
     os.system('ln -s '+newlogdir+' ./logs')
 
 def mae(segmap, pred_segmap):
-    pred_cnt = sum(pred_segmap) / 20
-    cnt = sum(segmap) / 20
+    pred_cnt = sum(pred_segmap, axis=(1,2,3)) / 20
+    cnt = sum(segmap, axis=(1,2,3)) / 20
     mae = mean(abs(pred_cnt - cnt))
     return mae
 
 def mse(segmap, pred_segmap):
-    pred_cnt = sum(pred_segmap) / 20
-    cnt = sum(segmap) / 20
+    pred_cnt = sum(pred_segmap, axis=(1,2,3)) / 20
+    cnt = sum(segmap, axis=(1,2,3)) / 20
     mse = sqrt(mean((pred_cnt - cnt)**2))
     return mse
 
 def true_num(segmap, pred_segmap):
-    true_num = sum(segmap) / 20
+    true_nums = sum(segmap, axis=(1,2,3)) / 20
+    true_num = mean(true_nums)
     return true_num
 
 def pred_num(segmap, pred_segmap):
-    pred_num = sum(pred_segmap) / 20
+    pred_nums = sum(pred_segmap, axis=(1,2,3)) / 20
+    pred_num = mean(pred_nums)
     return pred_num
 
+if args.premodel:
+    model.load_weights(args.premodel)
 #train
-adam = optimizers.Adam(lr = 0.01)
+adam = optimizers.Adam(lr = args.lr)
 model.compile(optimizer = adam, loss='mean_squared_error', metrics=[true_num, pred_num, mae, mse])
 
-checkpoint = ModelCheckpoint('./logs/models/weights_{epoch:02d}.hdf5', verbose=1, save_best_only=False, mode='auto', period = 1)
+# serialize model to JSON
+model_json = model.to_json()
+with open("./logs/model.json", "w") as json_file:
+    json_file.write(model_json)
+          
+checkpoint = ModelCheckpoint('./logs/models/weights_{epoch:02d}.hdf5', verbose=1, save_best_only=False, save_weights_only=True, mode='auto', period = 1)
 
 data_generator = get('train')
 model.fit_generator(data_generator, steps_per_epoch = config.per_epoch, epochs=config.nr_epoch, callbacks=[checkpoint])
