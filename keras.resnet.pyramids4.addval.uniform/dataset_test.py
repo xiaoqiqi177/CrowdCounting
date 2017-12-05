@@ -23,8 +23,6 @@ def get(dataset_name):
             items = [x for x in items if 'train' in x['group']]
         else:
             items = [x for x in items if 'test' in x['group']]
-        if dataset_name == 'train':
-            np.random.shuffle(items)
         imgs = []
         segmaps = []
         for item in items:

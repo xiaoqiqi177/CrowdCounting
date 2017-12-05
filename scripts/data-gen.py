@@ -48,8 +48,6 @@ def main():
         mat_nr_data = bio.getvalue()
         d.update({'mat_nori_data': mat_nr_data})
         result.append(d)
-        import IPython
-        IPython.embed()
         if False:
             cv2.imshow("img", img)
             cv2.imshow("mat", mat)

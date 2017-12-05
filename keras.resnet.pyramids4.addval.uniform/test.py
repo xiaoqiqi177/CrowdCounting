@@ -23,24 +23,24 @@ model = model_from_json(loaded_model_json)
 mdl_pth = args.modelpath
 model.load_weights(mdl_pth)
 
-imgs, segmaps = get('test')
+imgs, segmaps = get('train')
 datanum = len(imgs)
 mae = 0
 mse = 0 
 for img, segmap in zip(imgs, segmaps):
+    h, w = img.shape[0:2]
     padded_img = padimg(img, 32)
     test_data = cv2.cvtColor(padded_img, cv2.COLOR_BGR2RGB)
     test_data = preprocess_input(np.array([test_data]).astype(np.float64))
     pred_heatmap = model.predict(test_data, batch_size=1)[0]
+    pred_heatmap = pred_heatmap[:h, :w, :]
     k = 255/pred_heatmap.max()
     vis_heatmap = (pred_heatmap * k).astype('uint8')
     vis_heatmap = np.concatenate((vis_heatmap, vis_heatmap, vis_heatmap), axis=2)
-    retimg = np.concatenate((padded_img, vis_heatmap), axis=0)
+    retimg = np.concatenate((img, vis_heatmap), axis=0)
     pred_num = pred_heatmap.sum() / 20
     num = segmap.sum() / 20
-    print('pred / num: ', pred_num, '/', num)
-    #cv2.imshow('retimg', retimg)
-    #cv2.waitKey(0)
+    print('pred_num / num: ', pred_num, '/', num)
     mae += np.abs(pred_num - num)
     mse += (pred_num - num)**2
 print('mae: ', mae/datanum)

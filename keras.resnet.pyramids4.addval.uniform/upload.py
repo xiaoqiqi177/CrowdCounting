@@ -19,7 +19,7 @@ json_file = open('./logs/model.json', 'r')
 loaded_model_json = json_file.read()
 json_file.close()
 model = model_from_json(loaded_model_json)
-mdl_pth = './logs/models/weights_200.hdf5'
+mdl_pth = './logs/models/weights_267.hdf5'
 model.load_weights(mdl_pth)
 
 def predict(img):
@@ -29,7 +29,8 @@ def predict(img):
     pred_heatmap = model.predict(test_data, batch_size=1)[0]
     k = 255/pred_heatmap.max()
     vis_heatmap = (pred_heatmap * k).astype('uint8')
-    vis_heatmap = np.concatenate((vis_heatmap, vis_heatmap, vis_heatmap), axis=2)
+    #vis_heatmap = np.concatenate((vis_heatmap, vis_heatmap, vis_heatmap), axis=2)
+    vis_heatmap = cv2.applyColorMap(vis_heatmap[:,:,0], cv2.COLORMAP_JET)
     pred_num = pred_heatmap.sum() / 20
     cv2.putText(vis_heatmap, str(pred_num), (50, 50), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 1)
 
